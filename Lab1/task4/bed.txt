@@ -1,0 +1,8 @@
+take goat
+move
+put
+move
+take cabbage
+move
+put
+move

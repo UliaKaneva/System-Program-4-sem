@@ -1,0 +1,11 @@
+/mnt/d/CLionProjects/Sis-Proga-1-task/task6/client.c
+/mnt/d/CLionProjects/Sis-Proga-1-task/task6/server.c
+/mnt/d/CLionProjects/Sis-Proga-1-task/task6/task_6.h
+/mnt/d/CLionProjects/Sis-Proga-1-task/task6/text.txt
+kakaya-to erunda
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/Testing_File/test.txt
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/main.c
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/strings.c
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/strings.h
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/task2.c
+/mnt/d/CLionProjects/Sis-Proga-1-task/task2/task2.h

@@ -1,0 +1,17 @@
+Command 'take goat' executed successfully
+Command 'move' executed successfully
+Command 'put' executed successfully
+Command 'move' executed successfully
+Command 'take wolf' executed successfully
+Command 'move' executed successfully
+Command 'put' executed successfully
+Command 'take goat' executed successfully
+Command 'move' executed successfully
+Command 'put' executed successfully
+Command 'take cabbage' executed successfully
+Command 'move' executed successfully
+Command 'put' executed successfully
+Command 'move' executed successfully
+Command 'take goat' executed successfully
+Command 'move' executed successfully
+Congratulations! You successfully transported all items!

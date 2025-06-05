@@ -1,0 +1,220 @@
+#include "task_6.h"
+
+
+Directory *find_directory(Directory *head, const char *path) {
+    Directory *current = head;
+    while (current) {
+        if (strcmp(current->path, path) == 0) return current;
+        current = current->next;
+    }
+    return NULL;
+}
+
+Directory *add_directory(Directory **head, char *path) {
+    Directory *dir = malloc(sizeof(Directory));
+    if (!dir) {
+        return NULL;
+    }
+    dir->path = path;
+    dir->files = NULL;
+    dir->next = *head;
+    *head = dir;
+    return dir;
+}
+
+void add_file(Directory *dir, char *file) {
+    FileList *current = dir->files;
+    while (current) {
+        if (strcmp(current->file, file) == 0) {
+            free(file);
+            return;
+        }
+        current = current->next;
+    }
+
+    FileList *new_file = malloc(sizeof(FileList));
+    if (!new_file) {
+        free(file);
+        return;
+    }
+    new_file->file = file;
+    new_file->next = dir->files;
+    dir->files = new_file;
+}
+
+void free_directories(Directory *head) {
+    while (head) {
+        Directory *next = head->next;
+        free(head->path);
+
+        FileList *file = head->files;
+        while (file) {
+            FileList *next_file = file->next;
+            free(file->file);
+            free(file);
+            file = next_file;
+        }
+
+        free(head);
+        head = next;
+    }
+}
+
+Directory *process_paths(char *paths_data) {
+    Directory *directories = NULL;
+    char *path = paths_data;
+
+    while (*path) {
+        if (path[0] != '/') { // Не абсолютный путь
+            path += strlen(path) + 1;
+            continue;
+        }
+
+        char *resolved_path = realpath(path, NULL);
+        if (!resolved_path) { // В нормализированный абсолютный путь не получился
+            path += strlen(path) + 1;
+            continue;
+        }
+
+        path += strlen(path) + 1;
+
+        struct stat st;
+        if (stat(resolved_path, &st) == -1 || !S_ISREG(st.st_mode)) { // если переданный файл не файл
+            free(resolved_path);
+            continue;
+        }
+
+        char *temp_dir = strdup(resolved_path);
+        char *temp_file = strdup(resolved_path);
+
+        free(resolved_path);
+
+        if (!temp_dir || !temp_file) {
+            free(temp_dir);
+            free(temp_file);
+            free_directories(directories);
+            return NULL;
+        }
+
+        char *dir_path = dirname(temp_dir);
+        char *file_name = basename(temp_file);
+
+        if (strcmp(file_name, ".") == 0 || strcmp(file_name, "..") == 0) {
+            free(temp_dir);
+            free(temp_file);
+            continue;
+        }
+
+
+        char *dir_copy = strdup(dir_path);
+        char *file_copy = strdup(file_name);
+        free(temp_dir);
+        free(temp_file);
+
+        if (!dir_copy || !file_copy) {
+            free(dir_copy);
+            free(file_copy);
+            free_directories(directories);
+            return NULL;
+        }
+
+        Directory *dir = find_directory(directories, dir_copy);
+        if (!dir) {
+            dir = add_directory(&directories, dir_copy);
+            if (!dir) {
+                free(file_copy);
+                free(dir_copy);
+                free_directories(directories);
+                return NULL;
+            }
+        } else {
+            free(dir_copy);
+        }
+
+        add_file(dir, file_copy);
+    }
+    return directories;
+}
+
+int main() {
+    key_t key_req = ftok("tokfile", 55);
+    if (key_req == -1)
+        return TokenFileError;
+
+    int req_queue = msgget(key_req, IPC_CREAT | 0666);
+    if (req_queue == -1)
+        return MessageQueueError;
+
+    key_t key_res = ftok("tokfile", 56);
+    if (key_res == -1){
+        msgctl(req_queue, IPC_RMID, NULL);
+        return TokenFileError;
+    }
+
+
+    int res_queue = msgget(key_res, IPC_CREAT | 0666);
+    if (res_queue == -1){
+        msgctl(req_queue, IPC_RMID, NULL);
+        return MessageQueueError;
+    }
+
+    while (1) {
+        RequestMsg req;
+        ssize_t received = msgrcv(req_queue, &req, sizeof(req.data), 1, 0);
+        if (received == -1){
+            msgctl(req_queue, IPC_RMID, NULL);
+            msgctl(res_queue, IPC_RMID, NULL);
+            continue;
+        }
+
+
+        pid_t client_pid;
+        memcpy(&client_pid, req.data, sizeof(pid_t));
+        char *paths_data = req.data + sizeof(pid_t);
+        if (strcmp(paths_data, "Stop") == 0){
+            msgctl(req_queue, IPC_RMID, NULL);
+            msgctl(res_queue, IPC_RMID, NULL);
+            return Success;
+        }
+
+        Directory *directories = process_paths(paths_data);
+        if (!directories) continue;
+
+        ResponseMsg res;
+        res.mtype = client_pid;
+        char *ptr = res.data;
+        size_t remaining = sizeof(res.data);
+
+        for (Directory *dir = directories; dir && remaining > 0; dir = dir->next) {
+            size_t dir_len = strlen(dir->path) + 1;
+            if (dir_len > remaining) break;
+            memcpy(ptr, dir->path, dir_len);
+            ptr += dir_len;
+            remaining -= dir_len;
+
+            for (FileList *file = dir->files; file && remaining > 0; file = file->next) {
+                size_t file_len = strlen(file->file) + 1;
+                if (file_len > remaining) break;
+                memcpy(ptr, file->file, file_len);
+                ptr += file_len;
+                remaining -= file_len;
+            }
+
+            if (remaining < 1) break;
+            *ptr++ = '\0';
+            remaining--;
+        }
+
+        if (remaining >= 1) *ptr++ = '\0';
+        else ptr = res.data + sizeof(res.data) - 1;
+
+        size_t data_size = ptr - res.data;
+        if (msgsnd(res_queue, &res, data_size, 0) == -1) {
+            free_directories(directories);
+            return MessageSendError;
+        }
+
+        free_directories(directories);
+    }
+    return Success;
+}
