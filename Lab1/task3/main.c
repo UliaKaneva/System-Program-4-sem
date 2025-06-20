@@ -13,7 +13,7 @@ int main() {
         return print_error_message(SemError);
     }
 
-    unsigned short val[NumberError];
+    unsigned short val[NUMBER_PHILOSOPHERS];
     for (int i = 0; i < NUMBER_PHILOSOPHERS; ++i) {
         val[i] = 1;
     }
@@ -25,13 +25,10 @@ int main() {
         return print_error_message(SemError);
     }
 
-//    int res[NUMBER_PHILOSOPHERS];
-//    memset(res, 0, sizeof(int) * NUMBER_PHILOSOPHERS);
-
     pthread_t threads[NUMBER_PHILOSOPHERS];
 
     for (int i = 0; i < NUMBER_PHILOSOPHERS; ++i) {
-        Human* philosopher = calloc(1, sizeof(Human));
+        Human* philosopher = (Human *) calloc(1, sizeof(Human));
         if (!philosopher) {
             for (int j = 0; j < i; ++j) {
                 pthread_join(threads[j], NULL);
@@ -40,9 +37,7 @@ int main() {
             return print_error_message(MemoryError);
         }
         philosopher->id = i;
-//        philosopher->number_human = NUMBER_PHILOSOPHERS;
         philosopher->semid = semid;
-//        philosopher->res_dinners = res;
         pthread_create(&threads[i], NULL, strategy, philosopher);
     }
 
